@@ -17,12 +17,13 @@ model config {
 }
 
 model User {
-  id         Int      @id
-  first_name String?
-  username   String?
-  city       String?
-  category   String?
-  query      String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id            Int      @id
+  first_name    String?
+  username      String?
+  city          String?
+  category      String?
+  query         String?
+  lastPostToken String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
