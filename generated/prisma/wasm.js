@@ -122,14 +122,31 @@ exports.Prisma.ConfigScalarFieldEnum = {
   lastPostId: 'lastPostId'
 };
 
+exports.Prisma.UserScalarFieldEnum = {
+  id: 'id',
+  first_name: 'first_name',
+  username: 'username',
+  city: 'city',
+  category: 'category',
+  query: 'query',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
 };
 
+exports.Prisma.NullsOrder = {
+  first: 'first',
+  last: 'last'
+};
+
 
 exports.Prisma.ModelName = {
-  config: 'config'
+  config: 'config',
+  User: 'User'
 };
 
 /**

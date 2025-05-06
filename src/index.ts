@@ -1,7 +1,7 @@
 import TelegramBot from "node-telegram-bot-api";
 import { PrismaClient } from "../generated/prisma";
 import { WidgetList } from "./widgetList.dto";
-import { SearchRequest } from "./Request.dto";
+import { SearchRequest } from "./request.dto";
 
 require("dotenv").config();
 const prisma = new PrismaClient();
@@ -15,7 +15,7 @@ async function fetchData(cityId: string) {
     pagination_data: {
       "@type": "type.googleapis.com/post_list.PaginationData",
       last_post_date: "2025-05-01T14:51:43.244792Z",
-      page: -1,
+      page: 1,
       layer_page: -1,
       search_uid: "b6482299-8406-4758-8eb6-b5f8a71e381b",
     },
@@ -63,6 +63,7 @@ async function fetchData(cityId: string) {
   const decoratedPosts = posts.map((post) => {
     return {
       title: post.data.title,
+      type: post.widget_type,
       image_url: post.data.image_url,
       bottom_description_text: post.data.bottom_description_text,
       middle_description_text: post.data.middle_description_text,
@@ -83,32 +84,39 @@ async function fetchData(cityId: string) {
         lastPostId: decoratedPosts[0].token,
       },
     });
-    console.log(decoratedPosts[0]);
   }
   if (config.lastPostId !== decoratedPosts[0].token || true) {
-    bot.sendPhoto(
-      process.env.TELEGRAM_CHAT_ID || "",
-      decoratedPosts[0].image_url,
-      {
-        caption: `
-        <b>${decoratedPosts[0].title}</b>
-        ${decoratedPosts[0].top_description_text}
-        ${decoratedPosts[0].middle_description_text}
-        ${decoratedPosts[0].bottom_description_text}
-        <a href="https://divar.ir/v/${decoratedPosts[0].title.replace(
-          " ",
-          "-"
-        )}/${decoratedPosts[0].token}">لینک دیوار</a>
-        `,
-        parse_mode: "HTML",
+    for (let i = 0; i < decoratedPosts.length; i++) {
+      const post = decoratedPosts[i];
+      if (!post.image_url) {
+        post.image_url = "https://placehold.co/600x400.png";
       }
-    );
+      console.log(post);
+      await sendPostToTelegram(post);
+    }
 
-    console.log(decoratedPosts[0]);
+    // console.log(decoratedPosts[0]);
   }
 }
 
+async function sendPostToTelegram(post: any) {
+  await bot.sendPhoto(process.env.TELEGRAM_CHAT_ID || "", post.image_url, {
+    caption: `
+      <b>${post.title}</b>
+      ${post.top_description_text}
+      ${post.middle_description_text}
+      ${post.bottom_description_text}
+      <a href="https://divar.ir/v/${post.title.replace(" ", "-")}/${
+      post.token
+    }">لینک دیوار</a>
+      `,
+    parse_mode: "HTML",
+  });
+}
+
 (() => {
+  fetchData(process.env.CITY_ID || "1");
+  return;
   setInterval(() => {
     fetchData(process.env.CITY_ID || "1");
   }, 5000);
