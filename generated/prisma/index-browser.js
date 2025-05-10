@@ -129,6 +129,16 @@ exports.Prisma.UserScalarFieldEnum = {
   city: 'city',
   category: 'category',
   query: 'query',
+  lastPostToken: 'lastPostToken',
+  subscribeUntil: 'subscribeUntil',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.PostScalarFieldEnum = {
+  id: 'id',
+  token: 'token',
+  userId: 'userId',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };
@@ -146,7 +156,8 @@ exports.Prisma.NullsOrder = {
 
 exports.Prisma.ModelName = {
   config: 'config',
-  User: 'User'
+  User: 'User',
+  Post: 'Post'
 };
 
 /**

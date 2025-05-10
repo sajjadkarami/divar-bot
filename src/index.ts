@@ -1,123 +1,144 @@
+import * as dotenv from "dotenv";
+import { parse } from "node-html-parser";
 import TelegramBot from "node-telegram-bot-api";
 import { PrismaClient } from "../generated/prisma";
-import { WidgetList } from "./widgetList.dto";
-import { SearchRequest } from "./request.dto";
+import { bot, sendPhoto } from "./bot";
+import { FETCH_INTERVAL } from "./constants";
+import { fetchPost, findUser, upsertPost } from "./db";
+import { State } from "./dto/state.enum";
+import { Buttons, startHandler } from "./handlers/start.handler";
+import { divarUrlSchema } from "./schema/divar.schema";
+import { truncate } from "./utils";
+import { channelHandler } from "./handlers/channel.handler";
+import { supportHandler } from "./handlers/support.handler";
+import { educationHandler } from "./handlers/educationHandler";
+import { myAddsHandler } from "./handlers/myAdds.handler";
+import { submitAdHandler } from "./handlers/submitAd.handler";
+dotenv.config();
 
-require("dotenv").config();
 const prisma = new PrismaClient();
-const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN || "", {
-  polling: true,
+
+export const userState = new Array<State>();
+export const handlers = new Map<
+  string,
+  (message: TelegramBot.Message) => void
+>();
+
+export const intervals = new Map<bigint, NodeJS.Timeout>();
+
+handlers.set("/start", startHandler);
+handlers.set(Buttons.MY_AD, myAddsHandler);
+// handlers.set(Buttons.Subscription, subscriptionHandler);
+handlers.set(Buttons.Channel, channelHandler);
+handlers.set(Buttons.Education, educationHandler);
+handlers.set(Buttons.Support, supportHandler);
+handlers.set(Buttons.SubmitAd, submitAdHandler);
+handlers.set(Buttons.Back, startHandler);
+bot.on("message", async (message) => {
+  if (!message.text) return;
+  if (!message.from?.id) return;
+
+  const handler = handlers.get(message.text);
+  if (handler) {
+    handler(message);
+    return;
+  }
+  const id = message.from.id;
+  const state = userState[message.from.id];
+  if (state === State.SEND_QUERY) {
+    try {
+      divarUrlSchema.parse(message.text);
+      userState[id] = State.SUBMITTED_QUERY;
+      const response = await fetch(message.text);
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+      const text = await response.text();
+      const root = parse(text);
+      const category = root.querySelector("seo-headline-ba08f")?.innerText;
+      await prisma.user.update({
+        where: { id },
+        data: { query: message.text, category: category },
+      });
+      bot.sendMessage(id, `آگهی مورد نظر شما ، ${category} ثبت شد.`);
+      const oldInterval = intervals.get(BigInt(id));
+      if (oldInterval) clearInterval(oldInterval);
+      setUserInterval(message?.from.id);
+    } catch (e) {
+      console.log(e);
+    }
+  }
 });
 
-async function fetchData(cityId: string) {
-  const req: SearchRequest = {
-    city_ids: [cityId],
-    pagination_data: {
-      "@type": "type.googleapis.com/post_list.PaginationData",
-      last_post_date: "2025-05-01T14:51:43.244792Z",
-      page: 1,
-      layer_page: -1,
-      search_uid: "b6482299-8406-4758-8eb6-b5f8a71e381b",
-    },
-    disable_recommendation: false,
-    map_state: {
-      camera_info: {
-        bbox: {},
-      },
-    },
-    search_data: {
-      form_data: {
-        data: {
-          sort: {
-            str: {
-              value: "sort_date",
-            },
-          },
-          category: {
-            str: {
-              value: "light",
-            },
-          },
-        },
-      },
-      server_payload: {
-        "@type": "type.googleapis.com/widgets.SearchData.ServerPayload",
-        additional_form_data: {},
-      },
-      query: "207 i",
-    },
-  };
-
-  const request = await fetch(process.env.DIVAR_API_URL || "", {
-    method: "POST",
-    headers: { Authorization: `Basic ${process.env.DIVAR_API_KEY}` },
-    body: JSON.stringify(req),
-  });
-  if (!request.ok) {
-    throw new Error(`Http error! status ${request.status}`);
-  }
-  const response: WidgetList = await request.json();
-  const posts = response.list_widgets.filter(
-    (w) => w.widget_type === "POST_ROW"
-  );
-  const decoratedPosts = posts.map((post) => {
-    return {
-      title: post.data.title,
-      type: post.widget_type,
-      image_url: post.data.image_url,
-      bottom_description_text: post.data.bottom_description_text,
-      middle_description_text: post.data.middle_description_text,
-      top_description_text: post.data.top_description_text,
-      token: post.data.token,
-    };
-  });
-  console.log(decoratedPosts);
-  let config = await prisma.config.findFirst({
-    where: {
-      id: 1,
-    },
-  });
-  if (!config) {
-    config = await prisma.config.create({
-      data: {
-        id: 1,
-        lastPostId: decoratedPosts[0].token,
-      },
-    });
-  }
-  if (config.lastPostId !== decoratedPosts[0].token || true) {
-    for (let i = 0; i < decoratedPosts.length; i++) {
-      const post = decoratedPosts[i];
-      if (!post.image_url) {
-        post.image_url = "https://placehold.co/600x400.png";
-      }
-      console.log(post);
-      await sendPostToTelegram(post);
+async function fetchForUser(userId: any) {
+  try {
+    const user = await findUser(userId);
+    if (!user?.query) return;
+    const response = await fetch(user.query);
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
     }
-
-    // console.log(decoratedPosts[0]);
+    const text = await response.text();
+    const root = parse(text);
+    const scripts = root.querySelectorAll("script");
+    const items = JSON.parse(scripts[scripts.length - 1].innerHTML);
+    const reversedItems = items.reverse();
+    reversedItems.map(async (item: any) => {
+      const post = extractData(item);
+      const databasePost = await fetchPost(userId, post.id);
+      console.log(items);
+      if (databasePost) return;
+      const caption = buildCaption(post);
+      await sendPhoto(userId, post.image, truncate(caption));
+      await upsertPost(userId, post.id);
+    });
+  } catch (error) {
+    console.error("Error:", error);
   }
 }
 
-async function sendPostToTelegram(post: any) {
-  await bot.sendPhoto(process.env.TELEGRAM_CHAT_ID || "", post.image_url, {
-    caption: `
-      <b>${post.title}</b>
-      ${post.top_description_text}
-      ${post.middle_description_text}
-      ${post.bottom_description_text}
-      <a href="https://divar.ir/v/${post.title.replace(" ", "-")}/${
-      post.token
-    }">لینک دیوار</a>
-      `,
-    parse_mode: "HTML",
-  });
+function buildCaption(post: any) {
+  let caption = `<b>${post.title}</b>`;
+  if (post.price) caption = caption + `<b>قیمت:</b> ${post.price} تومان\n`;
+  if (post.productionDate)
+    caption = caption + `<b>تاریخ تولید:</b> ${post.productionDate}\n`;
+  if (post.color) caption = caption + `<b>رنگ:</b> ${post.color}\n`;
+  if (post.model) caption = caption + `<b>مدل:</b> ${post.model}\n`;
+  if (post.vehicleTransmission)
+    caption = caption + `<b>نوع گیربکس:</b> ${post.vehicleTransmission}\n`;
+  if (post.description)
+    caption = caption + `<b>توضیحات:</b> ${post.description}\n`;
+  if (post.name) caption += `<b>نام:</b> ${post.name}\n`;
+  if (post.url) caption += `<a href="${post.url}">لینک</a>`;
+  return caption;
 }
 
-(() => {
-  fetchData(process.env.CITY_ID || "1");
-  return;
-  setInterval(() => {
-    fetchData(process.env.CITY_ID || "1");
-  }, 5000);
-})();
+function extractData(item: any) {
+  return {
+    id: item.url.split("/")[5],
+    description: item.description,
+    price: item.offers?.price,
+    title: item.web_info?.title,
+    productionDate: item?.production_date,
+    color: item?.color,
+    model: item?.model,
+    image: item?.image,
+    url: item?.url,
+    name: item?.name,
+    vehicleTransmission: item?.vehicle_transmission,
+  };
+}
+
+function setUserInterval(userId: any) {
+  const userInterval = setInterval(() => {
+    fetchForUser(userId);
+  }, FETCH_INTERVAL);
+  intervals.set(userId, userInterval);
+}
+
+// (async () => {
+//   const users = await prisma.user.findMany();
+//   users.forEach((u) => {
+//     setUserInterval(u.id);
+//   });
+// })();
