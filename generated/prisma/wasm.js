@@ -114,6 +114,9 @@ Prisma.NullTypes = {
  */
 
 exports.Prisma.TransactionIsolationLevel = makeStrictEnum({
+  ReadUncommitted: 'ReadUncommitted',
+  ReadCommitted: 'ReadCommitted',
+  RepeatableRead: 'RepeatableRead',
   Serializable: 'Serializable'
 });
 
@@ -148,9 +151,26 @@ exports.Prisma.SortOrder = {
   desc: 'desc'
 };
 
+exports.Prisma.configOrderByRelevanceFieldEnum = {
+  lastPostId: 'lastPostId'
+};
+
 exports.Prisma.NullsOrder = {
   first: 'first',
   last: 'last'
+};
+
+exports.Prisma.UserOrderByRelevanceFieldEnum = {
+  first_name: 'first_name',
+  username: 'username',
+  city: 'city',
+  category: 'category',
+  query: 'query',
+  lastPostToken: 'lastPostToken'
+};
+
+exports.Prisma.PostOrderByRelevanceFieldEnum = {
+  token: 'token'
 };
 
 

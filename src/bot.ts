@@ -1,5 +1,7 @@
 import TelegramBot from "node-telegram-bot-api";
 import { EMPTY_IMAGE } from "./constants";
+import * as dotenv from "dotenv";
+dotenv.config();
 
 export const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN || "", {
   polling: true,

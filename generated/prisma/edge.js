@@ -86,6 +86,9 @@ Prisma.NullTypes = {
  * Enums
  */
 exports.Prisma.TransactionIsolationLevel = makeStrictEnum({
+  ReadUncommitted: 'ReadUncommitted',
+  ReadCommitted: 'ReadCommitted',
+  RepeatableRead: 'RepeatableRead',
   Serializable: 'Serializable'
 });
 
@@ -120,9 +123,26 @@ exports.Prisma.SortOrder = {
   desc: 'desc'
 };
 
+exports.Prisma.configOrderByRelevanceFieldEnum = {
+  lastPostId: 'lastPostId'
+};
+
 exports.Prisma.NullsOrder = {
   first: 'first',
   last: 'last'
+};
+
+exports.Prisma.UserOrderByRelevanceFieldEnum = {
+  first_name: 'first_name',
+  username: 'username',
+  city: 'city',
+  category: 'category',
+  query: 'query',
+  lastPostToken: 'lastPostToken'
+};
+
+exports.Prisma.PostOrderByRelevanceFieldEnum = {
+  token: 'token'
 };
 
 
@@ -169,17 +189,17 @@ const config = {
   "datasourceNames": [
     "db"
   ],
-  "activeProvider": "sqlite",
+  "activeProvider": "mysql",
   "inlineDatasources": {
     "db": {
       "url": {
         "fromEnvVar": "DATABASE_URL",
-        "value": "file:./dev.db"
+        "value": "mysql://root:12345678@localhost:3306/divar"
       }
     }
   },
-  "inlineSchema": "// This is your Prisma schema file,\n// learn more about it in the docs: https://pris.ly/d/prisma-schema\n\ngenerator client {\n  provider = \"prisma-client-js\"\n  output   = \"../generated/prisma\"\n}\n\ndatasource db {\n  provider = \"sqlite\"\n  url      = env(\"DATABASE_URL\")\n}\n\nmodel config {\n  id         Int    @id\n  lastPostId String\n}\n\nmodel User {\n  id             BigInt   @id\n  first_name     String?\n  username       String?\n  city           String?\n  category       String?\n  query          String?\n  lastPostToken  String?\n  subscribeUntil DateTime @default(now())\n  posts          Post[]\n\n  createdAt DateTime @default(now())\n  updatedAt DateTime @updatedAt\n}\n\nmodel Post {\n  id     Int     @id @default(autoincrement())\n  token  String\n  User   User?   @relation(fields: [userId], references: [id])\n  userId BigInt?\n\n  createdAt DateTime @default(now())\n  updatedAt DateTime @updatedAt\n\n  @@unique([token, userId])\n}\n",
-  "inlineSchemaHash": "7a561df1613df0516ffe2ae81aea2d980756aa8f0acdc6a6cacc8339e89dfda3",
+  "inlineSchema": "// This is your Prisma schema file,\n// learn more about it in the docs: https://pris.ly/d/prisma-schema\n\ngenerator client {\n  provider = \"prisma-client-js\"\n  output   = \"../generated/prisma\"\n}\n\ndatasource db {\n  provider = \"mysql\"\n  url      = env(\"DATABASE_URL\")\n}\n\nmodel config {\n  id         Int    @id\n  lastPostId String\n}\n\nmodel User {\n  id             BigInt   @id\n  first_name     String?\n  username       String?\n  city           String?\n  category       String?\n  query          String?\n  lastPostToken  String?\n  subscribeUntil DateTime @default(now())\n  posts          Post[]\n\n  createdAt DateTime @default(now())\n  updatedAt DateTime @updatedAt\n}\n\nmodel Post {\n  id     Int     @id @default(autoincrement())\n  token  String\n  User   User?   @relation(fields: [userId], references: [id])\n  userId BigInt?\n\n  createdAt DateTime @default(now())\n  updatedAt DateTime @updatedAt\n\n  @@unique([token, userId])\n}\n",
+  "inlineSchemaHash": "3414f23d4990fdfa37bc0375cfc807f1581e88c8c32a1ca652d86544de628e32",
   "copyEngine": true
 }
 config.dirname = '/'

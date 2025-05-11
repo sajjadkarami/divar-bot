@@ -12,6 +12,7 @@ export enum Buttons {
   Back = "بازگشت به منوی اصلی ⬅️",
   SubmitAd = "ثبت آگهی",
   DeleteAd = "حذف آگهی",
+  EditAd = "ویرایش آگهی",
 }
 
 export const startHandler: Handler = async (message) => {
